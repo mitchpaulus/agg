@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "agg": {
+      "commandName": "Project",
+      "commandLineArgs": "-p d -a max -n 1 -d , \"181210T1606--TS CSV--Edison - ATT--CHW Plant--181110 To 181208.csv\"",
+      "workingDirectory": "C:\\Users\\mpaulus\\edison\\testreport"
+    }
+  }
+}
