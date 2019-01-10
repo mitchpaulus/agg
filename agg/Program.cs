@@ -10,7 +10,7 @@ namespace agg
     {
         static void Main(string[] args)
         {
-            List<IOption> availableOptions = new List<IOption>()
+            List<IOption> availableOptions = new List<IOption>
             {
                 new AggregationPeriodOption(),
                 new DelimiterOption(),
@@ -41,16 +41,24 @@ namespace agg
                     continue;
                 }
 
-                option.OptionUpdate(argList.GetRange(i, option.ArgsConsumed), opts);
+                try
+                {
+                    option.OptionUpdate(argList.GetRange(i, option.ArgsConsumed), opts);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    return;
+                }
 
                 i = i + (option.ArgsConsumed - 1);
             }
 
             if (opts.HelpWanted)
             {
-                Console.Out.WriteLine("USAGE: agg [options...] file\n\nOptions:");
+                Console.Out.WriteLine("USAGE: agg [options...] file\n\nOptions:                     Description [Default]");
 
-                IEnumerable<string> optionText = availableOptions.Select(option => $"    -{option.ShortName}  --{ ($"{option.LongName} {(option.ArgsConsumed == 2 ? $"<{option.LongName}>"  : "")}"),-15}    {option.HelpText}\n");
+                IEnumerable<string> optionText = availableOptions.Select(option => $"    -{option.ShortName}  --{ $"{option.LongName} {(option.ArgsConsumed == 2 ? $"<{option.LongName}>"  : "")}",-15}    {option.HelpText}\n");
                 Console.Out.Write(string.Join(string.Empty, optionText));
 
                 return;
@@ -65,13 +73,13 @@ namespace agg
             IEnumerable<string> lines; 
             if (!Console.IsInputRedirected)
             {
-                Console.WriteLine("Reading from File...");
+                //Console.WriteLine("Reading from File...");
                 string fullFilename = Path.GetFullPath(opts.Filename);
                 lines = File.ReadLines(fullFilename, Encoding.UTF8).Skip(opts.SkipRows);
             }
             else
             {
-                Console.WriteLine("Reading from standard input ...");
+                //Console.WriteLine("Reading from standard input ...");
                 List<string> standardInputLines = new List<string>();
 
                 string line;
@@ -96,6 +104,8 @@ namespace agg
                 lineNumber++;
             }
 
+            // If no lines, then max is set to 0.
+            if (!allData.Any()) return;
             int maxFields = allData.Max(tuple => tuple.rawData.Count);
             DateTime minDate = opts.AggregationPeriod.RoundDown(allData.Min(tuple => tuple.dateTime));
 
@@ -149,9 +159,9 @@ namespace agg
 
         private static void WriteOutput(AggregationOptions opts, DateTime currentMinDate, List<List<double>> sums)
         {
-            List<string> fields = new List<string>() {opts.AggregationPeriod.DateText(currentMinDate)};
+            List<string> fields = new List<string> { opts.AggregationPeriod.DateText(currentMinDate) };
             fields.AddRange(sums.Select(list => list.Any() ? opts.AggregationFunc(list).ToString("f") : string.Empty));
-            Console.Write(string.Join(opts.Delimiter, fields) + "\n");
+            Console.Write(string.Join(opts.Delimiter ?? "\t", fields) + "\n");
         }
     }
 
@@ -162,19 +172,22 @@ namespace agg
         public int ArgsConsumed => 2;
         public void OptionUpdate(List<string> args, AggregationOptions options)
         {
-            if (args[1].Length == 1)
+            // Single character version
+            string input = args[1];
+            if (input.Length == 1)
             {
-                char periodChar = args[1][0];
+                char periodChar = input[0];
                 AggregationPeriod period = AggregationPeriod.AllPeriods.FirstOrDefault(p => p.Flag == periodChar);
-                if (period == null)
-                {
-                    throw new NotImplementedException($"Could not find period corresponding to {periodChar}");
-                }
-                options.AggregationPeriod = period;
+                options.AggregationPeriod = period ?? throw new NotImplementedException($"Could not find period corresponding to {periodChar}");
+            }
+            else
+            {
+                AggregationPeriod period = AggregationPeriod.AllPeriods.FirstOrDefault(p => string.Equals(p.Description, input, StringComparison.OrdinalIgnoreCase));
+                options.AggregationPeriod = period ?? throw new NotImplementedException($"Could not find period corresponding to {input}");
             }
         }
 
-        public string HelpText => "Period of aggregation. Possible values are daily, weekly, monthly, and yearly";
+        public string HelpText => "Period of aggregation. Possible values are daily, weekly, monthly, and yearly [daily]";
     }
 
     public class HeaderSkipOption : IOption
@@ -187,7 +200,7 @@ namespace agg
             options.SkipRows = int.Parse(args.Last());
         }
 
-        public string HelpText => "Number of header rows to skip.";
+        public string HelpText => "Number of header rows to skip. [0]";
     }
 
     public class DelimiterOption : IOption
@@ -200,12 +213,12 @@ namespace agg
             options.Delimiter = args.Last();
         }
 
-        public string HelpText => "Delimiter separating fields";
+        public string HelpText => "Delimiter separating fields [whitespace]";
     }
 
     public class AggregationFunctionOption : IOption
     {
-        protected internal readonly List<(string optionName, Func<IEnumerable<double>, double> function)> OptionList = new  List<(string optionName, Func<IEnumerable<double>, double> function)>()
+        protected internal readonly List<(string optionName, Func<IEnumerable<double>, double> function)> OptionList = new  List<(string optionName, Func<IEnumerable<double>, double> function)>
         {
             ("sum", Enumerable.Sum),
             ("mean", Enumerable.Average),
@@ -222,12 +235,12 @@ namespace agg
         {
             var selectedFunction = OptionList.FirstOrDefault(tuple => tuple.optionName == args[1]);
             if (selectedFunction.Equals(default((string optionName, Func<IEnumerable<double>, double> function))))
-                throw new NotImplementedException($"No corresponding aggregation function for {args[1]}.\nAvailable options:\n{string.Join(", ",OptionList.Select(tuple => tuple.optionName))}");
+                throw new ArgumentException($"No corresponding aggregation function for {args[1]}.\nAvailable options:\n{string.Join(", ",OptionList.Select(tuple => tuple.optionName))}");
 
             options.AggregationFunc = selectedFunction.function;
         }
 
-        public string HelpText => $"Aggregation function. Options include {string.Join(", ", OptionList.Select(tuple => tuple.optionName))}.";
+        public string HelpText => $"Aggregation function. Options include {string.Join(", ", OptionList.Select(tuple => tuple.optionName))}. [sum]";
     }
 
     public class HelpOption : IOption
@@ -261,7 +274,7 @@ namespace agg
     public class AggregationOptions
     {
         public AggregationPeriod AggregationPeriod = AggregationPeriod.Daily;
-        public string Delimiter = "\t";
+        public string Delimiter = null;
         public bool VersionWanted;
         public bool HelpWanted;
         public string Filename;
@@ -312,7 +325,7 @@ namespace agg
         public Func<DateTime, string> DateText;
         public char Flag { get; }
 
-        AggregationPeriod(int id, string description, char flag, Func<DateTime, DateTime> roundDown, Func<DateTime, DateTime> next, Func<DateTime, string> dateText)
+        private AggregationPeriod(int id, string description, char flag, Func<DateTime, DateTime> roundDown, Func<DateTime, DateTime> next, Func<DateTime, string> dateText)
         {
             Flag = flag;
             RoundDown = roundDown;
