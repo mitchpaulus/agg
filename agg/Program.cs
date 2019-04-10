@@ -66,7 +66,8 @@ namespace agg
 
             if (opts.VersionWanted)
             {
-                Console.Out.WriteLine("Version 0.1");
+                Console.Out.WriteLine("Version 0.1.0\nCopyright Mitchell T. Paulus 2019");
+                return;
             }
 
 
