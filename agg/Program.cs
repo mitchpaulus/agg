@@ -51,7 +51,7 @@ namespace agg
                     return;
                 }
 
-                i = i + (option.ArgsConsumed - 1);
+                i += (option.ArgsConsumed - 1);
             }
 
             if (opts.HelpWanted)
@@ -66,7 +66,7 @@ namespace agg
 
             if (opts.VersionWanted)
             {
-                Console.Out.WriteLine("Version 0.1.0\nCopyright Mitchell T. Paulus 2019");
+                Console.Out.WriteLine("Version 0.2.0\nCopyright Mitchell T. Paulus 2019");
                 return;
             }
 
@@ -97,7 +97,7 @@ namespace agg
                 var fields = line.Split(opts.Delimiter);
                 string dateInput = fields[0];
                 bool success = DateTime.TryParse(dateInput, out DateTime dateTime);
-                if (!success) {Console.WriteLine($"Could not parse the date/time {dateInput} on line {lineNumber}."); Environment.ExitCode = 1; return;}
+                if (!success) { Console.WriteLine($"Could not parse the date/time {dateInput} on line {lineNumber}."); Environment.ExitCode = 1; return; }
 
                 List<string> data = fields.ToList().Skip(1).ToList();
                 
@@ -122,9 +122,9 @@ namespace agg
                 sums.Add(new List<double>());
             }
 
-            foreach ((DateTime dateTime, List<string> data) record in allData)
+            foreach ((DateTime dateTime, List<string> data) in allData)
             {
-                if (record.dateTime >= currentMaxDate)
+                if (dateTime >= currentMaxDate)
                 {
                     WriteOutput(opts, currentMinDate, sums);
 
@@ -137,16 +137,26 @@ namespace agg
                     currentMaxDate = opts.AggregationPeriod.Next(currentMaxDate);
                 }
 
-                for (int i = 0; i < record.data.Count; i++)
+                // In the case of missing data, need to push the current max date until it
+                // goes ahead of the current datetime.
+                while (dateTime >= currentMaxDate)
                 {
-                    string dataPoint = record.data[i];
+                    WriteOutput(opts, currentMinDate, sums);
+
+                    currentMinDate = currentMaxDate;
+                    currentMaxDate = opts.AggregationPeriod.Next(currentMaxDate);
+                }
+
+                for (int i = 0; i < data.Count; i++)
+                {
+                    string dataPoint = data[i];
                     // Skip fields with whitespace.
                     if (string.IsNullOrWhiteSpace(dataPoint)) continue;
 
                     bool success = double.TryParse(dataPoint, out double value);
                     if (!success)
                     {
-                        Console.WriteLine($"Could not parse the field {dataPoint} in position {i}/{record.data.Count} on row {lineNumber}.");
+                        Console.WriteLine($"Could not parse the field {dataPoint} in position {i}/{data.Count} on row {lineNumber}.");
                         Environment.ExitCode = 3;
                         return;
                     }
