@@ -6,7 +6,7 @@
     <Version>0.1.0</Version>
     <Authors>Mitchell Paulus</Authors>
     <Company>Command Commissioning</Company>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
